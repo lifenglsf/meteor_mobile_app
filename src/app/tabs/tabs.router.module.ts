@@ -35,6 +35,16 @@ const routes: Routes = [
         ]
       },
       {
+        path: 'chats',
+        children: [
+          {
+            path: '',
+            loadChildren: '../chats/chats.module#ChatsPageModule'
+          }
+        ]
+      },
+    
+      {
         path: '',
         redirectTo: '/tabs/tab1',
         pathMatch: 'full'
@@ -46,6 +56,7 @@ const routes: Routes = [
     redirectTo: '/tabs/tab1',
     pathMatch: 'full'
   }
+  
 ];
 
 @NgModule({
