@@ -77,4 +77,16 @@
 
   /** whatsapp **/
   --ion-color-whatsapp: #075E54;
+  --ion-scroll[scrollx=true], ion-scroll[scrolly=true] {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  --ion-scroll[scrollx=true] {
+    overflow-x: auto;
+  }
+  
+  --ion-scroll[scrolly=true] {
+    overflow-y: auto;
+  }
 }

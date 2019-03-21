@@ -6,7 +6,6 @@ import { MessageType } from './models';
 Meteor.startup(() => {
   if (Chats.find({}).cursor.count() === 0) {
     let chatId;
- 
     chatId = Chats.collection.insert({
       title: 'Ethan Gonzalez',
     });
