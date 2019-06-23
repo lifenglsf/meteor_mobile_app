@@ -7,6 +7,10 @@ import * as moment from 'moment';
 import * as _ from 'lodash';
 import { ActivatedRoute } from '@angular/router';
 import {map} from 'rxjs/operators';
+import { NavParams, PopoverController } from 'ionic-angular';
+import { MessagesOptionsComponent } from './messages-options';
+import { Subscription } from 'rxjs';
+
 @Component({
   selector: 'messages-page',
   templateUrl: 'messages.page.html'
@@ -19,19 +23,51 @@ export class MessagesPage implements OnInit, OnDestroy {
   message: string = '';
   autoScroller: MutationObserver;
   scrollOffset = 0;
+  senderId: string;
+  loadingMessages: boolean;
+  messagesComputation: Subscription;
 
   constructor(
     private router: ActivatedRoute,
-    private el: ElementRef
+    private el: ElementRef,
+    private popoverCtrl: PopoverController
   ) {
       this.router.queryParams.subscribe(queryParams=>{
       console.log(queryParams);
-      this.selectedChat = queryParams.chat;
+      this.selectedChat = JSON.parse(queryParams.chat);
     })
     this.title = this.selectedChat.title;
     this.picture = this.selectedChat.picture;
-  }
+    this.senderId = Meteor.userId();
 
+  }
+// Subscribes to the relevant set of messages
+subscribeMessages(): void {
+  // A flag which indicates if there's a subscription in process
+  this.loadingMessages = true;
+  // A custom offset to be used to re-adjust the scrolling position once
+  // new dataset is fetched
+  this.scrollOffset = this.scroller.scrollHeight;
+
+  MeteorObservable.subscribe('messages',
+    this.selectedChat._id
+  ).subscribe(() => {
+    // Keep tracking changes in the dataset and re-render the view
+    if (!this.messagesComputation) {
+      this.messagesComputation = this.autorunMessages();
+    }
+
+    // Allow incoming subscription requests
+    this.loadingMessages = false;
+  });
+}
+
+// Detects changes in the messages dataset and re-renders the view
+autorunMessages(): Subscription {
+  return MeteorObservable.autorun().subscribe(() => {
+    this.messagesDayGroups = this.findMessagesDayGroups();
+  });
+}
   private get messagesPageContent(): Element {
     return this.el.nativeElement.querySelector('.messages-page-content');
   }
@@ -45,18 +81,25 @@ export class MessagesPage implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.autoScroller = this.autoScroll();
     this.subscribeMessages();
   }
 
   ngOnDestroy() {
     this.autoScroller.disconnect();
   }
-
-  subscribeMessages() {
+  showOptions(): void {
+    const popover = this.popoverCtrl.create(MessagesOptionsComponent, {
+      chat: this.selectedChat
+    }, {
+      cssClass: 'options-popover messages-options-popover'
+    });
+ 
+    popover.present();
+  }
+  /*subscribeMessages() {
     this.scrollOffset = 0;//this.scroller.scrollHeight;
     this.messagesDayGroups = this.findMessagesDayGroups();
-  }
+  }*/
 
   findMessagesDayGroups() {
     let isEven = false;
@@ -71,7 +114,8 @@ export class MessagesPage implements OnInit, OnDestroy {
 
         // Compose missing data that we would like to show in the view
         messages.forEach((message) => {
-          message.ownership = isEven ? 'mine' : 'other';
+          message.ownership = this.senderId == message.senderId ? 'mine' : 'other';
+
           isEven = !isEven;
 
           return message;
@@ -94,23 +138,9 @@ export class MessagesPage implements OnInit, OnDestroy {
       }));
   }
 
-  autoScroll(): MutationObserver {
-    const autoScroller = new MutationObserver(this.scrollDown.bind(this));
+ 
 
-    autoScroller.observe(this.messagesList, {
-      childList: true,
-      subtree: true
-    });
-
-    return autoScroller;
-  }
-
-  scrollDown(): void {
-    // Scroll down and apply specified offset
-    this.scroller.scrollTop = this.scroller.scrollHeight - this.scrollOffset;
-    // Zero offset for next invocation
-    this.scrollOffset = 0;
-  }
+ 
 
   onInputKeypress({ keyCode }: KeyboardEvent): void {
     if (keyCode === 13) {

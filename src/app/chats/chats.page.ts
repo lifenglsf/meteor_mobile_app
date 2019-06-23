@@ -3,21 +3,101 @@ import { Chats, Messages } from 'api/collections';
 import { Chat,MessageType } from '../../models';
 import { Observable,of, interval } from 'rxjs';
 import * as moment from 'moment';
-import { NavController } from '@ionic/angular';
 import { Router } from '@angular/router';
-import { debounce, map } from 'rxjs/operators';
+import { mergeMap,combineLatest,startWith } from 'rxjs/operators';
+import { NavController, PopoverController } from '@ionic/angular';
+import { ChatsOptionsComponent } from './chats-options';
+import { NavController, PopoverController, ModalController } from 'ionic-angular';
+import { NewChatComponent } from './new-chat';
+import { Chats, Messages, Users } from 'api/collections';
+import { Chat, Message } from 'api/models';
+import { MeteorObservable } from 'meteor-rxjs';
+import { NavController, PopoverController, ModalController, AlertController } from 'ionic-angular';
+
 @Component({
   templateUrl: 'chats.page.html'
 })
 export class ChatsPage implements OnInit{
   chats;
+  senderId: string;
+
   ngOnInit(): void {
-    this.chats = this.findChats();
+    MeteorObservable.subscribe('chats').subscribe(() => {
+      MeteorObservable.autorun().subscribe(() => {
+        this.chats = this.findChats();
+      });
+    });
+
     //throw new Error("Method not implemented.");
   }
+ // constructor(private router:Router,private popoverCtrl:PopoverController,
+   // private modalCtrl: ModalController) {
+  //})
+  constructor(
+    private navCtrl: NavController,
+    private popoverCtrl: PopoverController,
+    private modalCtrl: ModalController,
+    private alertCtrl: AlertController) {
+      this.senderId = Meteor.userId();
 
-  constructor(private router:Router) {
-    
+  }
+  findChats(): Observable<Chat[]> {
+    // Find chats and transform them
+    return Chats.find().map(chats => {
+      chats.forEach(chat => {
+        chat.title = '';
+        chat.picture = '';
+ 
+        const receiverId = chat.memberIds.find(memberId => memberId !== this.senderId);
+        const receiver = Users.findOne(receiverId);
+ 
+        if (receiver) {
+          chat.title = receiver.profile.name;
+          chat.picture = receiver.profile.picture;
+        }
+ 
+        // This will make the last message reactive
+        this.findLastChatMessage(chat._id).subscribe((message) => {
+          chat.lastMessage = message;
+        });
+      });
+ 
+      return chats;
+    });
+  }
+ 
+  findLastChatMessage(chatId: string): Observable<Message> {
+    return Observable.create((observer: Subscriber<Message>) => {
+      const chatExists = () => !!Chats.findOne(chatId);
+ 
+      // Re-compute until chat is removed
+      MeteorObservable.autorun().takeWhile(chatExists).subscribe(() => {
+        Messages.find({ chatId }, {
+          sort: { createdAt: -1 }
+        }).subscribe({
+          next: (messages) => {
+            // Invoke subscription with the last message found
+            if (!messages.length) {
+              return;
+            }
+ 
+            const lastMessage = messages[0];
+            observer.next(lastMessage);
+          },
+          error: (e) => {
+            observer.error(e);
+          },
+          complete: () => {
+            observer.complete();
+          }
+        });
+      });
+    });
+  }
+ 
+  addChat(): void {
+    const modal = this.modalCtrl.create(NewChatComponent);
+    modal.present();
   }
   private findChats(): Observable<Chat[]> {
     console.log(Chats.find().cursor.count());
@@ -106,10 +186,40 @@ export class ChatsPage implements OnInit{
    console.log(chat);
    this.router.navigate(['/tabs/messages'],{queryParams:{chat:JSON.stringify(chat)}});
   }
-  removeChat(chat: Chat): void {
+  /*removeChat(chat: Chat): void {
    console.log('removechat');
    console.log(chat._id);
   const r = Chats.remove({_id:chat._id}).subscribe(()=>{});
    console.log(r);
+  }*/
+
+
+  removeChat(chat: Chat): void {
+    MeteorObservable.call('removeChat', chat._id).subscribe({
+      error: (e: Error) => {
+        if (e) {
+          this.handleError(e);
+        }
+      }
+    });
+  }
+ 
+  handleError(e: Error): void {
+    console.error(e);
+ 
+    const alert = this.alertCtrl.create({
+      buttons: ['OK'],
+      message: e.message,
+      title: 'Oops!'
+    });
+ 
+    alert.present();
+  }
+  showOptions(): void {
+    const popover = this.popoverCtrl.create(ChatsOptionsComponent, {}, {
+      cssClass: 'options-popover chats-options-popover'
+    });
+ 
+    popover.present();
   }
 }

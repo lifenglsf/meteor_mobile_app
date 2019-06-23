@@ -39,7 +39,7 @@ const routes: Routes = [
         children: [
           {
             path: '',
-            loadChildren: '../chats/chats.module#ChatsPageModule'
+            loadChildren: '../chats/chats.module#ChatPageModule'
           }
         ]
       },
@@ -62,7 +62,7 @@ const routes: Routes = [
   },
   {
     path: '',
-    redirectTo: '/tabs/tab1',
+    redirectTo: '/tabs/chats',
     pathMatch: 'full'
   }
   

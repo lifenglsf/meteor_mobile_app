@@ -14,4 +14,4 @@ import { ChatsPage } from './chats.page';
   ],
   declarations: [ChatsPage]
 })
-export class ChatsPageModule {}
+export class ChatPageModule {}
