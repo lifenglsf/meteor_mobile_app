@@ -3,7 +3,7 @@ import { Users } from './collections/users';
 import { Messages } from './collections/messages';
 import { Chats } from './collections/chats';
 
-Meteor.publish('users', function(): Mongo.Cursor<User> {
+/*Meteor.publish('users', function(): Mongo.Cursor<User> {
   if (!this.userId) {
     return;
   }
@@ -13,8 +13,32 @@ Meteor.publish('users', function(): Mongo.Cursor<User> {
       profile: 1
     }
   });
+});*/
+Meteor.publishComposite('users', function(
+  pattern: string
+): PublishCompositeConfig<User> {
+  if (!this.userId) {
+    return;
+  }
+ 
+  let selector = {};
+ 
+  if (pattern) {
+    selector = {
+      'profile.name': { $regex: pattern, $options: 'i' }
+    };
+  }
+ 
+  return {
+    find: () => {
+      return Users.collection.find(selector, {
+        fields: { profile: 1 },
+        limit: 15
+      });
+    }
+  };
 });
-Meteor.publish('messages', function(chatId: string): Mongo.Cursor<Message> {
+Meteor.publish('messages', function(chatId: string,MessagesBatchCounter:number): Mongo.Cursor<Message> {
     if (!this.userId || !chatId) {
       return;
     }
@@ -22,7 +46,8 @@ Meteor.publish('messages', function(chatId: string): Mongo.Cursor<Message> {
     return Messages.collection.find({
       chatId
     }, {
-      sort: { createdAt: -1 }
+      sort: { createdAt: -1 },
+      limit:30*MessagesBatchCounter
     });
   });
   Meteor.publishComposite('chats', function(): PublishCompositeConfig<Chat> {

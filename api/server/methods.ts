@@ -89,5 +89,8 @@ Meteor.methods({
         type: type
       })
     };
+  },
+  countMessages():number{
+    return Messages.colleciton.find().count();
   }
 });
